@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Jobs\ProcessReminderDispatch;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -84,11 +85,20 @@ class Appointment extends Model
             : Carbon::parse($this->start_time)->subMinutes($this->reminder_before_minutes);
 
         // Create the reminder dispatch
-        return $this->reminderDispatches()->create([
+        $reminderDispatch = $this->reminderDispatches()->create([
             'scheduled_at' => $scheduledAt,
             'status' => 'pending',
             'notification_method' => $this->client->preferred_notification_method,
         ]);
+
+        // Dispatch the job
+        if ($immediate) {
+            ProcessReminderDispatch::dispatch($reminderDispatch);
+        } else {
+            ProcessReminderDispatch::dispatch($reminderDispatch)->delay($scheduledAt);
+        }
+
+        return $reminderDispatch;
     }
 
     /**

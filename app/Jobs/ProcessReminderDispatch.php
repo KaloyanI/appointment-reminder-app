@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Client;
 use App\Models\ReminderDispatch;
 use App\Notifications\AppointmentReminder;
 use Illuminate\Bus\Queueable;
@@ -10,6 +11,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class ProcessReminderDispatch implements ShouldQueue
 {
@@ -28,6 +30,9 @@ class ProcessReminderDispatch implements ShouldQueue
     public function handle(): void
     {
         try {
+            // Reload the reminder dispatch with its relationships
+            $this->reminderDispatch->load(['appointment.client']);
+
             // Check if the reminder is still pending and not cancelled
             if ($this->reminderDispatch->status !== 'pending') {
                 return;
@@ -39,10 +44,15 @@ class ProcessReminderDispatch implements ShouldQueue
                 return;
             }
 
-            // Send the notification
-            $this->reminderDispatch->appointment->client->notify(
-                new AppointmentReminder($this->reminderDispatch->appointment)
-            );
+            // Get a fresh instance of the client
+            $client = Client::find($this->reminderDispatch->appointment->client_id);
+
+            if (!$client) {
+                throw new \Exception('Client not found for this appointment');
+            }
+
+            // Send the notification using the Notification facade
+            Notification::send($client, new AppointmentReminder($this->reminderDispatch->appointment));
 
             // Update the reminder status
             $this->reminderDispatch->update([
@@ -54,6 +64,7 @@ class ProcessReminderDispatch implements ShouldQueue
             Log::info('Reminder sent successfully', [
                 'reminder_id' => $this->reminderDispatch->id,
                 'appointment_id' => $this->reminderDispatch->appointment_id,
+                'client_id' => $client->id,
             ]);
         } catch (\Exception $e) {
             // Update retry count and status

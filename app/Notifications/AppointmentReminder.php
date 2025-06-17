@@ -26,13 +26,7 @@ class AppointmentReminder extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        $methods = [];
-        
-        if (in_array($this->appointment->client->preferred_notification_method, ['email', 'both'])) {
-            $methods[] = 'mail';
-        }
-        
-        return $methods;
+        return ['mail'];
     }
 
     /**
@@ -41,6 +35,7 @@ class AppointmentReminder extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $startTime = $this->appointment->getLocalStartTime();
+        $endTime = $this->appointment->getLocalEndTime();
         
         return (new MailMessage)
             ->subject("Reminder: {$this->appointment->title}")
@@ -48,9 +43,11 @@ class AppointmentReminder extends Notification implements ShouldQueue
             ->line("This is a reminder for your upcoming appointment:")
             ->line("Title: {$this->appointment->title}")
             ->line("Date: " . $startTime->format('l, F j, Y'))
-            ->line("Time: " . $startTime->format('g:i A'))
+            ->line("Time: " . $startTime->format('g:i A') . " - " . $endTime->format('g:i A'))
             ->line("Location: " . ($this->appointment->location ?? 'Not specified'))
-            ->line($this->appointment->description ?? '')
+            ->when($this->appointment->description, function ($message) {
+                return $message->line("Description: {$this->appointment->description}");
+            })
             ->action('View Appointment Details', url('/appointments/' . $this->appointment->id))
             ->line('Thank you for using our service!');
     }
@@ -66,6 +63,7 @@ class AppointmentReminder extends Notification implements ShouldQueue
             'appointment_id' => $this->appointment->id,
             'title' => $this->appointment->title,
             'start_time' => $this->appointment->start_time,
+            'end_time' => $this->appointment->end_time,
             'location' => $this->appointment->location,
         ];
     }
