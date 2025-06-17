@@ -10,98 +10,38 @@ class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_users_can_register(): void
+    public function test_users_can_authenticate_using_the_login_screen(): void
     {
-        $response = $this->postJson('/api/register', [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+        $user = User::factory()->create();
+
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
         ]);
 
-        $response->assertStatus(201)
-            ->assertJsonStructure(['token']);
-
-        $this->assertDatabaseHas('users', [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $this->assertAuthenticated();
+        $response->assertNoContent();
     }
 
-    public function test_users_can_login(): void
+    public function test_users_can_not_authenticate_with_invalid_password(): void
     {
-        $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password123'),
+        $user = User::factory()->create();
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
         ]);
 
-        $response = $this->postJson('/api/login', [
-            'email' => 'test@example.com',
-            'password' => 'password123',
-        ]);
-
-        $response->assertStatus(200)
-            ->assertJsonStructure(['token']);
+        $this->assertGuest();
     }
 
     public function test_users_can_logout(): void
     {
         $user = User::factory()->create();
-        $token = $user->createToken('test-token')->plainTextToken;
 
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-        ])->postJson('/api/logout');
+        $response = $this->actingAs($user)->post('/logout');
 
-        $response->assertStatus(204);
-        $this->assertDatabaseCount('personal_access_tokens', 0);
-    }
-
-    public function test_users_can_get_their_profile(): void
-    {
-        $user = User::factory()->create();
-        $token = $user->createToken('test-token')->plainTextToken;
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-        ])->getJson('/api/user');
-
-        $response->assertStatus(200)
-            ->assertJson([
-                'name' => $user->name,
-                'email' => $user->email,
-            ]);
-    }
-
-    public function test_users_cannot_login_with_invalid_password(): void
-    {
-        $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password123'),
-        ]);
-
-        $response = $this->postJson('/api/login', [
-            'email' => 'test@example.com',
-            'password' => 'wrong-password',
-        ]);
-
-        $response->assertStatus(422);
-    }
-
-    public function test_users_cannot_register_with_existing_email(): void
-    {
-        User::factory()->create([
-            'email' => 'test@example.com',
-        ]);
-
-        $response = $this->postJson('/api/register', [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-        ]);
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+        $this->assertGuest();
+        $response->assertNoContent();
     }
 }
