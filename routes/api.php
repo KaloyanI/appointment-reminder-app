@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\ReminderController;
+use App\Http\Controllers\Api\ClientController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -26,4 +27,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('reminder-settings/{reminder}', [ReminderController::class, 'updateSetting']);
     Route::post('appointments/{appointment}/trigger-reminder', [ReminderController::class, 'trigger']);
     Route::post('reminders/{reminder}/retry', [ReminderController::class, 'retry']);
+
+    // Client notification preferences
+    Route::put('/clients/{client}/notification-preferences', [ClientController::class, 'updateNotificationPreferences'])
+        ->name('clients.update-notification-preferences');
+
+    // Client routes
+    Route::apiResource('clients', ClientController::class);
 });
