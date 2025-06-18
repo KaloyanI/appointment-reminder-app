@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class Appointment extends Model
 {
@@ -31,7 +32,6 @@ class Appointment extends Model
         'status', // scheduled, completed, cancelled, no_show
         'is_recurring',
         'recurrence_rule', // RRULE format for recurring appointments
-        'reminder_before_minutes',
         'location',
         'notes',
     ];
@@ -47,7 +47,6 @@ class Appointment extends Model
         'start_time' => 'datetime',
         'end_time' => 'datetime',
         'is_recurring' => 'boolean',
-        'reminder_before_minutes' => 'integer',
     ];
 
     /**
@@ -67,6 +66,14 @@ class Appointment extends Model
     }
 
     /**
+     * Get the reminder settings for the appointment.
+     */
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(AppointmentReminder::class);
+    }
+
+    /**
      * Get the reminder dispatches for the appointment.
      */
     public function reminderDispatches(): HasMany
@@ -75,44 +82,50 @@ class Appointment extends Model
     }
 
     /**
-     * Schedule a reminder for this appointment.
+     * Schedule reminders for this appointment.
      */
-    public function scheduleReminder(bool $immediate = false): ReminderDispatch
-    {
-        // Calculate when the reminder should be sent
-        $scheduledAt = $immediate 
-            ? now() 
-            : Carbon::parse($this->start_time)->subMinutes($this->reminder_before_minutes);
-
-        // Create the reminder dispatch
-        $reminderDispatch = $this->reminderDispatches()->create([
-            'scheduled_at' => $scheduledAt,
-            'status' => 'pending',
-            'notification_method' => $this->client->preferred_notification_method,
-        ]);
-
-        // Dispatch the job
-        if ($immediate) {
-            ProcessReminderDispatch::dispatch($reminderDispatch);
-        } else {
-            ProcessReminderDispatch::dispatch($reminderDispatch)->delay($scheduledAt);
-        }
-
-        return $reminderDispatch;
-    }
-
-    /**
-     * Reschedule the pending reminders for this appointment.
-     */
-    public function rescheduleReminder(): void
+    public function scheduleReminders(): Collection
     {
         // Cancel any pending reminders
         $this->reminderDispatches()
             ->where('status', 'pending')
             ->update(['status' => 'cancelled']);
 
-        // Schedule a new reminder
-        $this->scheduleReminder();
+        // Schedule new reminders for each enabled reminder setting
+        return $this->reminders()
+            ->where('is_enabled', true)
+            ->get()
+            ->map(function ($reminder) {
+                $scheduledAt = Carbon::parse($this->start_time)
+                    ->subMinutes($reminder->minutes_before);
+
+                $reminderDispatch = $this->reminderDispatches()->create([
+                    'scheduled_at' => $scheduledAt,
+                    'status' => 'pending',
+                    'notification_method' => $reminder->notification_method,
+                ]);
+
+                ProcessReminderDispatch::dispatch($reminderDispatch)
+                    ->delay($scheduledAt);
+
+                return $reminderDispatch;
+            });
+    }
+
+    /**
+     * Schedule an immediate reminder for this appointment.
+     */
+    public function scheduleImmediateReminder(string $notificationMethod = null): ReminderDispatch
+    {
+        $reminderDispatch = $this->reminderDispatches()->create([
+            'scheduled_at' => now(),
+            'status' => 'pending',
+            'notification_method' => $notificationMethod ?? $this->client->preferred_notification_method,
+        ]);
+
+        ProcessReminderDispatch::dispatch($reminderDispatch);
+
+        return $reminderDispatch;
     }
 
     /**

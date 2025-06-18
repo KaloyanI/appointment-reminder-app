@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('appointment_id')->constrained()->onDelete('cascade');
             $table->dateTime('scheduled_at');
             $table->dateTime('sent_at')->nullable();
-            $table->enum('status', ['pending', 'sent', 'failed'])->default('pending');
+            $table->enum('status', ['pending', 'sent', 'failed', 'cancelled'])->default('pending');
             $table->enum('notification_method', ['email', 'sms', 'both']);
             $table->text('error_message')->nullable();
             $table->unsignedTinyInteger('retry_count')->default(0);

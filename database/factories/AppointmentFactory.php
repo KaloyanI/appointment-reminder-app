@@ -46,7 +46,6 @@ class AppointmentFactory extends Factory
             'recurrence_rule' => function (array $attributes) {
                 return $attributes['is_recurring'] ? 'FREQ=WEEKLY;COUNT=4' : null;
             },
-            'reminder_before_minutes' => fake()->randomElement([15, 30, 60, 120, 1440]), // 15m, 30m, 1h, 2h, 24h
             'location' => fake()->optional(0.9)->address(),
             'notes' => fake()->optional(0.6)->text(200),
         ];

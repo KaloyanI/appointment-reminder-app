@@ -58,9 +58,11 @@ class AppointmentController extends Controller
             'timezone' => 'required|timezone',
             'is_recurring' => 'boolean',
             'recurrence_rule' => 'nullable|required_if:is_recurring,true|string',
-            'reminder_before_minutes' => 'required|integer|min:1',
             'location' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
+            'reminders' => 'array',
+            'reminders.*.minutes_before' => 'required|integer|min:1',
+            'reminders.*.notification_method' => ['required', Rule::in(['email', 'sms', 'both'])],
         ]);
 
         // Ensure the client belongs to the authenticated user
@@ -80,10 +82,26 @@ class AppointmentController extends Controller
             'status' => 'scheduled',
         ]);
 
-        // Schedule the reminder
-        $appointment->scheduleReminder();
+        // Create reminders if provided
+        if (isset($validated['reminders'])) {
+            foreach ($validated['reminders'] as $reminder) {
+                $appointment->reminders()->create($reminder);
+            }
+        } else {
+            // Create default reminder (24 hours before)
+            $appointment->reminders()->create([
+                'minutes_before' => 1440,
+                'notification_method' => $client->preferred_notification_method,
+            ]);
+        }
 
-        return response()->json($appointment->load(['client', 'reminderDispatches']), 201);
+        // Schedule all reminders
+        $appointment->scheduleReminders();
+
+        return response()->json(
+            $appointment->load(['client', 'reminders', 'reminderDispatches']), 
+            201
+        );
     }
 
     /**
@@ -117,9 +135,13 @@ class AppointmentController extends Controller
             'status' => ['sometimes', 'required', Rule::in(['scheduled', 'completed', 'cancelled', 'no_show'])],
             'is_recurring' => 'sometimes|required|boolean',
             'recurrence_rule' => 'nullable|required_if:is_recurring,true|string',
-            'reminder_before_minutes' => 'sometimes|required|integer|min:1',
             'location' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
+            'reminders' => 'sometimes|required|array',
+            'reminders.*.id' => 'sometimes|exists:appointment_reminders,id',
+            'reminders.*.minutes_before' => 'required|integer|min:1',
+            'reminders.*.notification_method' => ['required', Rule::in(['email', 'sms', 'both'])],
+            'reminders.*.is_enabled' => 'sometimes|boolean',
         ]);
 
         // If client_id is being updated, ensure it belongs to the authenticated user
@@ -140,14 +162,26 @@ class AppointmentController extends Controller
             $validated['end_time'] = Carbon::parse($validated['end_time'], $timezone)->utc();
         }
 
+        // Update appointment
         $appointment->update($validated);
 
-        // Reschedule reminder if time or reminder_before_minutes changed
-        if (isset($validated['start_time']) || isset($validated['reminder_before_minutes'])) {
-            $appointment->rescheduleReminder();
+        // Update reminders if provided
+        if (isset($validated['reminders'])) {
+            // Delete existing reminders
+            $appointment->reminders()->delete();
+
+            // Create new reminders
+            foreach ($validated['reminders'] as $reminder) {
+                $appointment->reminders()->create($reminder);
+            }
+
+            // Reschedule all reminders
+            $appointment->scheduleReminders();
         }
 
-        return response()->json($appointment->load(['client', 'reminderDispatches']));
+        return response()->json(
+            $appointment->load(['client', 'reminders', 'reminderDispatches'])
+        );
     }
 
     /**

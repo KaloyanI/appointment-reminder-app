@@ -22,6 +22,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Reminder routes
     Route::get('reminders', [ReminderController::class, 'index']);
+    Route::get('reminder-settings', [ReminderController::class, 'settings']);
+    Route::put('reminder-settings/{reminder}', [ReminderController::class, 'updateSetting']);
     Route::post('appointments/{appointment}/trigger-reminder', [ReminderController::class, 'trigger']);
     Route::post('reminders/{reminder}/retry', [ReminderController::class, 'retry']);
 });
