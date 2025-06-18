@@ -12,6 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Throwable;
 
 class ProcessReminderDispatch implements ShouldQueue
 {
@@ -61,17 +62,18 @@ class ProcessReminderDispatch implements ShouldQueue
             ]);
 
             // Log success
-            Log::info('Reminder sent successfully', [
-                'reminder_id' => $this->reminderDispatch->id,
-                'appointment_id' => $this->reminderDispatch->appointment_id,
-                'client_id' => $client->id,
-            ]);
-        } catch (\Exception $e) {
-            // Update retry count and status
+            if (config('reminders.monitoring.detailed_logging')) {
+                Log::info('Reminder sent successfully', [
+                    'reminder_id' => $this->reminderDispatch->id,
+                    'appointment_id' => $this->reminderDispatch->appointment_id,
+                    'client_id' => $client->id,
+                ]);
+            }
+        } catch (Throwable $e) {
+            // Update status and error message
             $this->reminderDispatch->update([
                 'status' => 'failed',
                 'error_message' => $e->getMessage(),
-                'retry_count' => $this->reminderDispatch->retry_count + 1,
             ]);
 
             // Log error
@@ -79,12 +81,31 @@ class ProcessReminderDispatch implements ShouldQueue
                 'reminder_id' => $this->reminderDispatch->id,
                 'appointment_id' => $this->reminderDispatch->appointment_id,
                 'error' => $e->getMessage(),
+                'retry_count' => $this->reminderDispatch->retry_count,
             ]);
 
-            // Rethrow if we should retry
-            if ($this->reminderDispatch->retry_count < 3) {
-                throw $e;
+            // Dispatch retry job if we haven't exceeded max attempts
+            if ($this->reminderDispatch->retry_count < config('reminders.retries.max_attempts', 3)) {
+                RetryFailedReminder::dispatch($this->reminderDispatch);
             }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Handle a job failure.
+     */
+    public function failed(Throwable $exception): void
+    {
+        // Additional failure handling if needed
+        if (config('reminders.monitoring.detailed_logging')) {
+            Log::error('Reminder dispatch job failed', [
+                'reminder_id' => $this->reminderDispatch->id,
+                'appointment_id' => $this->reminderDispatch->appointment_id,
+                'error' => $exception->getMessage(),
+                'retry_count' => $this->reminderDispatch->retry_count,
+            ]);
         }
     }
 } 
