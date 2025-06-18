@@ -197,4 +197,31 @@ class AppointmentController extends Controller
 
         return response()->json(null, 204);
     }
+
+    /**
+     * Update the status of an appointment.
+     */
+    public function updateStatus(Request $request, Appointment $appointment): JsonResponse
+    {
+        if ($appointment->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Not authorized.'], 403);
+        }
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['scheduled', 'completed', 'cancelled', 'no_show'])],
+        ]);
+
+        $oldStatus = $appointment->status;
+        $appointment->update($validated);
+
+        // If the appointment was previously scheduled and is now cancelled,
+        // cancel any pending reminders
+        if ($oldStatus === 'scheduled' && $validated['status'] !== 'scheduled') {
+            $appointment->reminderDispatches()
+                ->where('status', 'pending')
+                ->update(['status' => 'cancelled']);
+        }
+
+        return response()->json($appointment->load(['client', 'reminderDispatches']));
+    }
 } 

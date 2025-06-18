@@ -20,6 +20,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Appointment routes
     Route::apiResource('appointments', AppointmentController::class);
+    Route::put('appointments/{appointment}/status', [AppointmentController::class, 'updateStatus']);
 
     // Reminder routes
     Route::get('reminders', [ReminderController::class, 'index']);
