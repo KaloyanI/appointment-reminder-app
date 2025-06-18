@@ -42,4 +42,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function ()
     Route::get('/reminders', [App\Http\Controllers\Api\Admin\ReminderController::class, 'index']);
     Route::get('/reminders/stats', [App\Http\Controllers\Api\Admin\ReminderController::class, 'stats']);
     Route::get('/reminder-settings', [App\Http\Controllers\Api\Admin\ReminderController::class, 'settings']);
+    
+    // Analytics routes
+    Route::get('/analytics/overview', [App\Http\Controllers\Api\Admin\AnalyticsController::class, 'overview']);
+    Route::get('/analytics/daily', [App\Http\Controllers\Api\Admin\AnalyticsController::class, 'daily']);
+    Route::get('/analytics/failures', [App\Http\Controllers\Api\Admin\AnalyticsController::class, 'failures']);
 });
