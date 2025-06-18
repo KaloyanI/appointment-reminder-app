@@ -6,7 +6,7 @@ A Laravel-based appointment reminder system built with Laravel Sail for easy Doc
 
 - Appointment scheduling and management
 - Automated reminder notifications
-- Built with Laravel 11
+- Built with Laravel Framework 12.19.0
 - Docker development environment with Laravel Sail
 - MySQL database
 - Redis caching
@@ -200,6 +200,67 @@ appointment-reminder/
 ├── .env                   # Environment variables
 └── README.md             # This file
 ```
+
+## API Documentation
+
+The project includes comprehensive API endpoints for:
+- Authentication and user management
+- Appointment scheduling and management
+- Reminder configuration and dispatch
+- Admin analytics and controls
+
+Detailed API documentation can be found in the `/documents` directory:
+- `documents/appointment-reminder/appointments-api.md`: Appointment management endpoints
+- `documents/appointment-reminder/reminder-apis.md`: Reminder system endpoints
+- `documents/auth/README.md`: Authentication endpoints
+- `documents/bonus/analytics.md`: Admin analytics endpoints
+
+## Reminder System Configuration
+
+Configure the reminder system in `config/reminders.php`:
+```env
+# Reminder timing configuration
+REMINDER_DEFAULT_OFFSET=24 # Hours before appointment
+REMINDER_RETRY_ATTEMPTS=3
+REMINDER_RETRY_DELAY=15 # Minutes
+
+# Notification channels
+NOTIFICATION_CHANNELS=["mail", "sms"]
+```
+
+## Notification Channels
+
+The system supports multiple notification channels for appointment reminders:
+- Email notifications (default)
+- SMS notifications (requires configuration)
+- Additional channels can be added by extending the `AppointmentReminder` notification class
+
+## Admin Features
+
+The system includes an admin panel with:
+- Analytics dashboard for reminder performance
+- User management
+- System-wide reminder configuration
+- Access restricted via `CheckAdmin` middleware
+
+## Testing
+
+### Automated Tests
+
+The project includes comprehensive test suites:
+- Feature tests for API endpoints
+- Unit tests for core functionality
+- Authentication flow tests
+
+### API Testing with Postman
+
+A complete Postman collection is available at `/tests/Postman/appointment-reminder.postman_collection.json`
+
+To use:
+1. Import the collection into Postman
+2. Set up environment variables:
+   - `base_url`: Your local development URL
+   - `token`: Authentication token after login
 
 ## Environment Configuration
 

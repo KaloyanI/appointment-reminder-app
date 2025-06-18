@@ -61,7 +61,7 @@ try {
     const response = await axios.put(`/api/clients/${clientId}/notification-preferences`, {
         preferred_notification_method: 'both'
     });
-    console.log('Preferences updated:', response.data);
+    // Success handling
 } catch (error) {
     console.error('Failed to update preferences:', error.response?.data);
 }
