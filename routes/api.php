@@ -36,3 +36,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Client routes
     Route::apiResource('clients', ClientController::class);
 });
+
+// Admin Routes
+Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
+    Route::get('/reminders', [App\Http\Controllers\Api\Admin\ReminderController::class, 'index']);
+    Route::get('/reminders/stats', [App\Http\Controllers\Api\Admin\ReminderController::class, 'stats']);
+    Route::get('/reminder-settings', [App\Http\Controllers\Api\Admin\ReminderController::class, 'settings']);
+});
